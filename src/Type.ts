@@ -355,7 +355,8 @@ export class ObjectType extends Type {
             this._additionalPropertiesRef === undefined ? undefined : f(this._additionalPropertiesRef);
         switch (this.kind) {
             case "object":
-                return panic("We don't have full object types yet");
+                assert(this.isFixed);
+                return builder.getUniqueObjectType(properties, additionalProperties);
             case "map":
                 return builder.getMapType(defined(additionalProperties));
             case "class":
@@ -673,6 +674,7 @@ export function matchTypeExhaustive<U>(
     arrayType: (arrayType: ArrayType) => U,
     classType: (classType: ClassType) => U,
     mapType: (mapType: MapType) => U,
+    objectType: (objectType: ObjectType) => U,
     enumType: (enumType: EnumType) => U,
     unionType: (unionType: UnionType) => U,
     dateType: (dateType: PrimitiveType) => U,
@@ -697,9 +699,10 @@ export function matchTypeExhaustive<U>(
     } else if (t instanceof ArrayType) return arrayType(t);
     else if (t instanceof ClassType) return classType(t);
     else if (t instanceof MapType) return mapType(t);
+    else if (t instanceof ObjectType) return objectType(t);
     else if (t instanceof EnumType) return enumType(t);
     else if (t instanceof UnionType) return unionType(t);
-    return panic("Unknown Type");
+    return panic(`Unknown type ${t.kind}`);
 }
 
 export function matchType<U>(
@@ -717,8 +720,8 @@ export function matchType<U>(
     unionType: (unionType: UnionType) => U,
     stringTypeMatchers?: StringTypeMatchers<U>
 ): U {
-    function typeNotSupported(_: Type) {
-        return panic("Unsupported PrimitiveType");
+    function typeNotSupported(t: Type) {
+        return panic(`Unsupported type ${t.kind} in non-exhaustive match`);
     }
 
     if (stringTypeMatchers === undefined) {
@@ -737,6 +740,7 @@ export function matchType<U>(
         arrayType,
         classType,
         mapType,
+        typeNotSupported,
         enumType,
         unionType,
         stringTypeMatchers.dateType || typeNotSupported,
