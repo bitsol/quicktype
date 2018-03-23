@@ -9,13 +9,21 @@ import { defined } from "./Support";
 // import { unifyTypes, unionBuilderForUnification } from "./UnifyClasses";
 import { /* combineTypeAttributes, */ emptyTypeAttributes } from "./TypeAttributes";
 
-export function replaceObjectType(graph: TypeGraph, stringTypeMapping: StringTypeMapping, _conflateNumbers: boolean): TypeGraph {
-    function replace(setOfOneType: Set<ObjectType>, builder: GraphRewriteBuilder<ObjectType>, forwardingRef: TypeRef): TypeRef {
+export function replaceObjectType(
+    graph: TypeGraph,
+    stringTypeMapping: StringTypeMapping,
+    _conflateNumbers: boolean
+): TypeGraph {
+    function replace(
+        setOfOneType: Set<ObjectType>,
+        builder: GraphRewriteBuilder<ObjectType>,
+        forwardingRef: TypeRef
+    ): TypeRef {
         const o = defined(setOfOneType.first());
         const attributes = o.getAttributes();
         const properties = o.properties;
         const additionalProperties = o.additionalProperties;
-    
+
         function reconstituteProperties(): OrderedMap<string, ClassProperty> {
             return properties.map(cp => new ClassProperty(builder.reconstituteTypeRef(cp.typeRef), cp.isOptional));
         }
@@ -23,7 +31,7 @@ export function replaceObjectType(graph: TypeGraph, stringTypeMapping: StringTyp
         function makeClass(): TypeRef {
             return builder.getUniqueClassType(attributes, true, reconstituteProperties(), forwardingRef);
         }
-    
+
         function reconstituteAdditionalProperties(): TypeRef {
             return builder.reconstituteType(defined(additionalProperties));
         }
@@ -31,19 +39,19 @@ export function replaceObjectType(graph: TypeGraph, stringTypeMapping: StringTyp
         if (additionalProperties === undefined) {
             return makeClass();
         }
-    
+
         if (properties.isEmpty()) {
             const tref = builder.getMapType(reconstituteAdditionalProperties(), forwardingRef);
             builder.addAttributes(tref, attributes);
             return tref;
         }
-    
+
         if (additionalProperties.kind === "any") {
             // FIXME: Warn that we're losing additional property semantics.
             builder.setLostTypeAttributes();
             return makeClass();
         }
-    
+
         // FIXME: Go back to `unifyTypes` again once we're in a later pass.
         /*
         // FIXME: Warn that we're losing class semantics.
@@ -60,16 +68,19 @@ export function replaceObjectType(graph: TypeGraph, stringTypeMapping: StringTyp
         );
         */
 
-       const propertyTypes = properties.map(cp => cp.type).toOrderedSet().add(additionalProperties);
-       let union = builder.lookupTypeRefs(propertyTypes.toArray().map(t => t.typeRef));
-       if (union === undefined) {
-           const reconstitutedTypes = propertyTypes.map(t => builder.reconstituteType(t));
-           union = builder.getUniqueUnionType(emptyTypeAttributes, reconstitutedTypes);
-       }
+        const propertyTypes = properties
+            .map(cp => cp.type)
+            .toOrderedSet()
+            .add(additionalProperties);
+        let union = builder.lookupTypeRefs(propertyTypes.toArray().map(t => t.typeRef));
+        if (union === undefined) {
+            const reconstitutedTypes = propertyTypes.map(t => builder.reconstituteType(t));
+            union = builder.getUniqueUnionType(emptyTypeAttributes, reconstitutedTypes);
+        }
 
-       const mapType = builder.getMapType(union, forwardingRef);
-       builder.addAttributes(mapType, attributes);
-       return mapType;
+        const mapType = builder.getMapType(union, forwardingRef);
+        builder.addAttributes(mapType, attributes);
+        return mapType;
     }
 
     const allObjectTypes = graph.allTypesUnordered().filter(t => t instanceof ObjectType) as Set<ObjectType>;

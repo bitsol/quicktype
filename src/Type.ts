@@ -706,7 +706,7 @@ export function matchTypeExhaustive<U>(
 }
 
 export function matchType<U>(
-    t: Type,
+    type: Type,
     anyType: (anyType: PrimitiveType) => U,
     nullType: (nullType: PrimitiveType) => U,
     boolType: (boolType: PrimitiveType) => U,
@@ -729,7 +729,7 @@ export function matchType<U>(
     }
     /* tslint:disable:strict-boolean-expressions */
     return matchTypeExhaustive(
-        t,
+        type,
         typeNotSupported,
         anyType,
         nullType,
