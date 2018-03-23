@@ -234,8 +234,6 @@ export class Run {
         }
 
         if (haveSchemas) {
-            graph = replaceObjectType(graph, stringTypeMapping, conflateNumbers);
-
             let intersectionsDone = false;
             let unionsDone = false;
             do {
@@ -252,6 +250,8 @@ export class Run {
                 }
             } while (!intersectionsDone || !unionsDone);
         }
+
+        graph = replaceObjectType(graph, stringTypeMapping, conflateNumbers);
 
         if (this._options.findSimilarClassesSchemaURI !== undefined) {
             return graph;
