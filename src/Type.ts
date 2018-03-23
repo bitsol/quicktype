@@ -5,7 +5,7 @@ import { OrderedSet, OrderedMap, Collection, Set, is, hash } from "immutable";
 import { defined, panic, assert, assertNever } from "./Support";
 import { TypeRef, TypeReconstituter } from "./TypeBuilder";
 import { TypeNames, namesTypeAttributeKind } from "./TypeNames";
-import { TypeAttributes } from "./TypeAttributes";
+import { TypeAttributes, combineTypeAttributes } from "./TypeAttributes";
 
 export type PrimitiveStringTypeKind = "string" | "date" | "time" | "date-time";
 export type PrimitiveTypeKind = "none" | "any" | "null" | "bool" | "integer" | "double" | PrimitiveStringTypeKind;
@@ -545,6 +545,15 @@ export class UnionType extends SetOperationType {
         const members = this.getMemberRefs().map(f);
         return builder.getUnionType(members);
     }
+}
+
+export function combineTypeAttributesOfTypes(types: Collection<any, Type>): TypeAttributes {
+    return combineTypeAttributes(
+        types
+            .valueSeq()
+            .toArray()
+            .map(t => t.getAttributes())
+    );
 }
 
 export function setOperationCasesEqual(

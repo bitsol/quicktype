@@ -2,7 +2,7 @@
 
 import { Map, Set, OrderedSet } from "immutable";
 
-import { ClassType, Type, nonNullTypeCases, ClassProperty } from "./Type";
+import { ClassType, Type, nonNullTypeCases, ClassProperty, combineTypeAttributesOfTypes } from "./Type";
 import { GraphRewriteBuilder, TypeRef, StringTypeMapping } from "./TypeBuilder";
 import { assert, panic } from "./Support";
 import { TypeGraph } from "./TypeGraph";
@@ -138,7 +138,7 @@ export function combineClasses(
         forwardingRef: TypeRef
     ): TypeRef {
         assert(clique.size > 0, "Clique can't be empty");
-        const attributes = combineTypeAttributes(clique.toArray().map(c => c.getAttributes()));
+        const attributes = combineTypeAttributesOfTypes(clique);
         return unifyTypes(
             clique,
             attributes,

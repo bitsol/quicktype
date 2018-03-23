@@ -2,7 +2,15 @@
 
 import { Set, OrderedMap, OrderedSet, Map } from "immutable";
 
-import { ClassType, Type, assertIsClass, ClassProperty, UnionType } from "./Type";
+import {
+    ClassType,
+    Type,
+    assertIsClass,
+    ClassProperty,
+    UnionType,
+    ObjectType,
+    combineTypeAttributesOfTypes
+} from "./Type";
 import {
     TypeRef,
     UnionBuilder,
@@ -16,39 +24,65 @@ import { TypeNames, namesTypeAttributeKind } from "./TypeNames";
 import { TypeAttributes, combineTypeAttributes } from "./TypeAttributes";
 
 function getCliqueProperties(
-    clique: ClassType[],
+    clique: ObjectType[],
     makePropertyType: (attributes: TypeAttributes, types: OrderedSet<Type>) => TypeRef
-): OrderedMap<string, ClassProperty> {
-    let properties = OrderedMap<string, [OrderedSet<Type>, number, boolean]>();
-    for (const c of clique) {
-        c.properties.forEach((cp, name) => {
-            let p = properties.get(name);
-            if (p === undefined) {
-                p = [OrderedSet(), 0, false];
-                properties = properties.set(name, p);
-            }
-            p[1] += 1;
-            p[0] = p[0].add(cp.type);
-            if (cp.isOptional) {
-                p[2] = true;
-            }
-        });
+): [OrderedMap<string, ClassProperty>, TypeRef | undefined] {
+    let propertyNames = OrderedSet<string>();
+    for (const o of clique) {
+        propertyNames = propertyNames.union(o.properties.keySeq());
     }
-    return properties.map(([types, count, isOptional], name) => {
-        isOptional = isOptional || count < clique.length;
-        let attributes = combineTypeAttributes(types.toArray().map(t => t.getAttributes()));
+
+    let properties = propertyNames
+        .toArray()
+        .map(name => [name, OrderedSet(), false] as [string, OrderedSet<Type>, boolean]);
+    let additionalProperties = OrderedSet<Type>();
+    for (const o of clique) {
+        const additional = o.additionalProperties;
+        if (additional !== undefined) {
+            additionalProperties = additionalProperties.add(additional);
+        }
+
+        for (let i = 0; i < properties.length; i++) {
+            let [name, types, isOptional] = properties[i];
+            const maybeProperty = o.properties.get(name);
+            if (maybeProperty === undefined) {
+                isOptional = true;
+                if (additional !== undefined) {
+                    types = types.add(additional);
+                }
+            } else {
+                if (maybeProperty.isOptional) {
+                    isOptional = true;
+                }
+                types = types.add(maybeProperty.type);
+            }
+
+            properties[i][1] = types;
+            properties[i][2] = isOptional;
+        }
+    }
+
+    const additionalPropertiesAttributes = combineTypeAttributesOfTypes(additionalProperties);
+    const unifiedAdditionalProperties = makePropertyType(additionalPropertiesAttributes, additionalProperties);
+
+    const unifiedPropertiesArray = properties.map(([name, types, isOptional]) => {
+        let attributes = combineTypeAttributesOfTypes(types);
         attributes = namesTypeAttributeKind.setDefaultInAttributes(
             attributes,
             () => new TypeNames(OrderedSet([name]), OrderedSet(), true)
         );
-        return new ClassProperty(makePropertyType(attributes, types), isOptional);
+        return [name, new ClassProperty(makePropertyType(attributes, types), isOptional)] as [string, ClassProperty];
     });
+    const unifiedProperties = OrderedMap(unifiedPropertiesArray);
+
+    return [unifiedProperties, unifiedAdditionalProperties];
 }
 
-export class UnifyUnionBuilder extends UnionBuilder<TypeBuilder & TypeLookerUp, TypeRef[], TypeRef[], TypeRef[]> {
+export class UnifyUnionBuilder extends UnionBuilder<TypeBuilder & TypeLookerUp, TypeRef[], TypeRef[]> {
     constructor(
         typeBuilder: TypeBuilder & TypeLookerUp,
         private readonly _makeEnums: boolean,
+        private readonly _makeObjectTypes: boolean,
         private readonly _makeClassesFixed: boolean,
         private readonly _unifyTypes: (typesToUnify: TypeRef[], typeAttributes: TypeAttributes) => TypeRef
     ) {
@@ -68,9 +102,8 @@ export class UnifyUnionBuilder extends UnionBuilder<TypeBuilder & TypeLookerUp, 
         }
     }
 
-    protected makeClass(
-        classes: TypeRef[],
-        maps: TypeRef[],
+    protected makeObject(
+        objectRefs: TypeRef[],
         typeAttributes: TypeAttributes,
         forwardingRef: TypeRef | undefined
     ): TypeRef {
@@ -127,7 +160,7 @@ export function unionBuilderForUnification<T extends Type>(
     makeEnums: boolean,
     makeClassesFixed: boolean,
     conflateNumbers: boolean
-): UnionBuilder<TypeBuilder & TypeLookerUp, TypeRef[], TypeRef[], TypeRef[]> {
+): UnionBuilder<TypeBuilder & TypeLookerUp, TypeRef[], TypeRef[]> {
     return new UnifyUnionBuilder(typeBuilder, makeEnums, makeClassesFixed, (trefs, names) =>
         unifyTypes(
             Set(trefs.map(tref => tref.deref()[0])),
@@ -144,7 +177,7 @@ export function unifyTypes<T extends Type>(
     types: Set<Type>,
     typeAttributes: TypeAttributes,
     typeBuilder: GraphRewriteBuilder<T>,
-    unionBuilder: UnionBuilder<TypeBuilder & TypeLookerUp, TypeRef[], TypeRef[], TypeRef[]>,
+    unionBuilder: UnionBuilder<TypeBuilder & TypeLookerUp, TypeRef[], TypeRef[]>,
     conflateNumbers: boolean,
     maybeForwardingRef?: TypeRef
 ): TypeRef {

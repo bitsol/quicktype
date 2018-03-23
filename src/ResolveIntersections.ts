@@ -30,7 +30,8 @@ import {
     isPrimitiveTypeKind,
     isNumberTypeKind,
     GenericClassProperty,
-    TypeKind
+    TypeKind,
+    combineTypeAttributesOfTypes
 } from "./Type";
 import { assert, defined, panic } from "./Support";
 import {
@@ -155,7 +156,7 @@ class IntersectionAccumulator
 
     private updateEnumCases(members: OrderedSet<Type>): void {
         const enums = members.filter(t => t instanceof EnumType) as OrderedSet<EnumType>;
-        const attributes = combineTypeAttributes(enums.toArray().map(t => t.getAttributes()));
+        const attributes = combineTypeAttributesOfTypes(enums);
         this._enumAttributes = combineTypeAttributes(this._enumAttributes, attributes);
         if (members.find(t => t instanceof StringType) !== undefined) {
             return;
@@ -470,9 +471,7 @@ export function resolveIntersections(graph: TypeGraph, stringTypeMapping: String
         }
 
         const accumulator = new IntersectionAccumulator();
-        const extraAttributes = makeTypeAttributesInferred(
-            combineTypeAttributes(members.toArray().map(t => accumulator.addType(t)))
-        );
+        const extraAttributes = makeTypeAttributesInferred(combineTypeAttributesOfTypes(members));
         const attributes = combineTypeAttributes(intersectionAttributes, extraAttributes);
 
         const unionBuilder = new IntersectionUnionBuilder(builder);

@@ -8,7 +8,12 @@ export class TypeAttributeKind<T> {
     public readonly makeInferred: (a: T) => T;
     public readonly stringify: (a: T) => string | undefined;
 
-    constructor(readonly name: string, combine: ((a: T, b: T) => T) | undefined, makeInferred: ((a: T) => T) | undefined, stringify: ((a: T) => string | undefined) | undefined) {
+    constructor(
+        readonly name: string,
+        combine: ((a: T, b: T) => T) | undefined,
+        makeInferred: ((a: T) => T) | undefined,
+        stringify: ((a: T) => string | undefined) | undefined
+    ) {
         if (combine === undefined) {
             combine = () => {
                 return panic(`Cannot combine type attribute ${name}`);
@@ -73,7 +78,10 @@ export const emptyTypeAttributes: TypeAttributes = Map();
 
 export function combineTypeAttributes(attributeArray: TypeAttributes[]): TypeAttributes;
 export function combineTypeAttributes(a: TypeAttributes, b: TypeAttributes): TypeAttributes;
-export function combineTypeAttributes(firstOrArray: TypeAttributes[] | TypeAttributes, second?: TypeAttributes): TypeAttributes {
+export function combineTypeAttributes(
+    firstOrArray: TypeAttributes[] | TypeAttributes,
+    second?: TypeAttributes
+): TypeAttributes {
     let attributeArray: TypeAttributes[];
     let first: TypeAttributes;
     let rest: TypeAttributes[];
@@ -96,7 +104,12 @@ export function makeTypeAttributesInferred(attr: TypeAttributes): TypeAttributes
     return attr.map((value, kind) => kind.makeInferred(value));
 }
 
-export const descriptionTypeAttributeKind = new TypeAttributeKind<OrderedSet<string>>("description", setUnion, a => a, undefined);
+export const descriptionTypeAttributeKind = new TypeAttributeKind<OrderedSet<string>>(
+    "description",
+    setUnion,
+    a => a,
+    undefined
+);
 export const propertyDescriptionsTypeAttributeKind = new TypeAttributeKind<Map<string, OrderedSet<string>>>(
     "propertyDescriptions",
     (a, b) => a.mergeWith(setUnion, b),
